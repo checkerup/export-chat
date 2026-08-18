@@ -1,23 +1,27 @@
 ---
 name: export-chat
 description: >
-  Export the current opencode session's full chat history to a Markdown file. Reads from the
-  opencode SQLite database (~/.local/share/opencode/opencode.db), extracts all messages and
-  tool calls for the active session, and writes a timestamped Markdown file into the project
-  directory. Use when asked to "export chat", "save conversation", "dump chat history",
-  "export this conversation", or "save our chat". Also use when the user wants a record of
-  the discussion for documentation or review purposes.
+  Universal chat history export tool for 20+ AI coding harnesses/IDEs. Auto-detects and reads
+  conversations from Claude Code, Cursor, Opencode, Continue, Cline, Windsurf, Trae, Aider,
+  Codex CLI, Goose, Kilo Code, Roo Code, Cody, Warp, Copilot Chat, Zed, JetBrains AI, Amazon Q,
+  Gemini, Tabnine — from SQLite/JSON/JSONL/Markdown/YAML storage. Exports to structured Markdown.
+  Use when asked to "export chat", "save conversation", "dump chat history", "export this
+  conversation", "save our chat", or when the user wants a record of the discussion across any
+  AI tool.
 ---
 
 # Export Chat
 
-Export the full conversation from the current opencode session to a Markdown file in the project directory.
+Universal chat history export tool for 20+ AI coding harnesses/IDEs. Auto-detects each tool's
+local storage and exports conversations to structured Markdown.
 
 ## When to Use
 
 - User asks to "export chat", "save conversation", "dump chat history"
 - User wants to save the current discussion for documentation
 - User asks "save our chat" or "export this conversation"
+- User asks to export from a specific harness (Cursor, Continue, Claude Code, etc.)
+- User wants to list sessions across multiple AI tools
 - Proactively suggest when a long or important conversation is nearing completion
 
 ## How It Works
