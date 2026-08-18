@@ -8,6 +8,15 @@ import os
 import argparse
 from datetime import datetime
 
+# Force UTF-8 on stdout/stderr so non-ASCII (e.g. Cyrillic, emoji) doesn't crash
+# the script on Windows where the default console code page is often cp1251/cp437.
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 DB_PATH_CANDIDATES = [
     os.path.expanduser("~/.local/share/opencode/opencode.db"),
 ]

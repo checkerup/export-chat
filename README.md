@@ -167,6 +167,19 @@ If the database is in a non-standard location, use `--db /path/to/opencode.db`.
 - The session may have been archived/compacted, moving messages out of `message`/`part` tables
 - Try `--list-all` to find sessions with data
 
+**"UnicodeEncodeError: 'charmap' codec can't encode character..." (Windows)**
+- v1.1+ fixes this automatically by forcing UTF-8 on stdout/stderr
+- On older versions, set `PYTHONUTF8=1` or `PYTHONIOENCODING=utf-8` before running the script
+
+## Changelog
+
+### v1.1 — 2026-08-18
+
+**Fixed:**
+- **Windows Unicode crash**: `export_chat.py` crashed with `UnicodeEncodeError: 'charmap' codec can't encode character` when printing session titles containing non-ASCII characters (Cyrillic, emoji, currency symbols like ₽) on Windows, where the default console code page is cp1251 or cp437. The script now calls `sys.stdout.reconfigure(encoding="utf-8")` at startup when the default encoding is not UTF-8, making `--list` and `--list-all` work out of the box on Windows without needing `PYTHONUTF8=1`.
+
+No behavior changes on Linux/macOS (already UTF-8).
+
 ## License
 
 MIT
