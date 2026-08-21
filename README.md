@@ -1,3 +1,5 @@
+﻿[![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md) [![Русский](https://img.shields.io/badge/lang-Русский-red.svg)](README.ru.md) [![中文](https://img.shields.io/badge/lang-中文-green.svg)](README.zh.md)
+
 # export-chat
 
 Universal chat history export tool for **20+ AI coding harnesses/IDEs**. Reads conversations directly from each tool's local storage (SQLite, JSON, JSONL, Markdown, YAML) and exports them to a structured Markdown file.
@@ -6,26 +8,26 @@ Universal chat history export tool for **20+ AI coding harnesses/IDEs**. Reads c
 
 | # | Harness | Format | Status |
 |---|---------|--------|--------|
-| 1 | Claude Code | JSONL | ✅ Full |
-| 2 | Cursor | SQLite (state.vscdb) | ✅ Full |
-| 3 | GitHub Copilot Chat | SQLite (VS Code) | ⚠️ Partial |
-| 4 | Windsurf | SQLite (state.vscdb) | ⚠️ Partial |
-| 5 | Continue | JSON | ✅ Full |
-| 6 | Cline | JSON (per-task) | ✅ Full |
-| 7 | Aider | Markdown | ✅ Full |
-| 8 | Codex CLI | JSONL | ✅ Full |
-| 9 | Opencode | SQLite (opencode.db) | ✅ Full |
-| 10 | Zed AI | SQLite | ⚠️ Undocumented |
-| 11 | Trae | SQLite (state.vscdb) | ⚠️ Partial |
-| 12 | JetBrains AI Assistant | XML | ⚠️ Undocumented |
-| 13 | Cody (Sourcegraph) | JSON | ✅ Full |
-| 14 | Amazon Q Developer | SQLite (VS Code) | ⚠️ Partial |
-| 15 | Gemini Code Assist | SQLite (VS Code) | ⚠️ Partial |
-| 16 | Tabnine | SQLite (VS Code) | ⚠️ Partial |
-| 17 | Warp | SQLite + JSON | ⚠️ Partial |
-| 18 | Kilo Code | JSON (per-task) | ✅ Full |
-| 19 | Roo Code | JSON (per-task) | ✅ Full |
-| 20 | Goose | YAML | ✅ Full |
+| 1 | Claude Code | JSONL | вњ… Full |
+| 2 | Cursor | SQLite (state.vscdb) | вњ… Full |
+| 3 | GitHub Copilot Chat | SQLite (VS Code) | вљ пёЏ Partial |
+| 4 | Windsurf | SQLite (state.vscdb) | вљ пёЏ Partial |
+| 5 | Continue | JSON | вњ… Full |
+| 6 | Cline | JSON (per-task) | вњ… Full |
+| 7 | Aider | Markdown | вњ… Full |
+| 8 | Codex CLI | JSONL | вњ… Full |
+| 9 | Opencode | SQLite (opencode.db) | вњ… Full |
+| 10 | Zed AI | SQLite | вљ пёЏ Undocumented |
+| 11 | Trae | SQLite (state.vscdb) | вљ пёЏ Partial |
+| 12 | JetBrains AI Assistant | XML | вљ пёЏ Undocumented |
+| 13 | Cody (Sourcegraph) | JSON | вњ… Full |
+| 14 | Amazon Q Developer | SQLite (VS Code) | вљ пёЏ Partial |
+| 15 | Gemini Code Assist | SQLite (VS Code) | вљ пёЏ Partial |
+| 16 | Tabnine | SQLite (VS Code) | вљ пёЏ Partial |
+| 17 | Warp | SQLite + JSON | вљ пёЏ Partial |
+| 18 | Kilo Code | JSON (per-task) | вњ… Full |
+| 19 | Roo Code | JSON (per-task) | вњ… Full |
+| 20 | Goose | YAML | вњ… Full |
 
 ## Installation
 
@@ -146,7 +148,7 @@ Result:
 
 ## Requirements
 
-- Python 3.6+ (no external dependencies — only stdlib)
+- Python 3.6+ (no external dependencies вЂ” only stdlib)
 - Read-only access to harness databases (does not modify anything)
 
 ## Platform Support
@@ -174,7 +176,7 @@ Result:
 
 ## Changelog
 
-### v2.0.0 — 2026-08-18
+### v2.0.0 вЂ” 2026-08-18
 
 **Major rewrite: universal multi-harness support**
 
@@ -185,12 +187,12 @@ Result:
 - **Auto-detection**: storage locations auto-detected per platform (Windows/Linux/macOS)
 - **Full backward compatibility**: v1.x commands still work (`--db`, `--directory`, etc.)
 
-### v1.1 — 2026-08-18
+### v1.1 вЂ” 2026-08-18
 
 **Fixed:**
-- Windows Unicode crash: `export_chat.py` crashed with `UnicodeEncodeError: 'charmap' codec can't encode character` when printing session titles containing non-ASCII characters (Cyrillic, emoji, currency symbols like ₽) on Windows, where the default console code page is cp1251 or cp437. The script now calls `sys.stdout.reconfigure(encoding="utf-8")` at startup when the default encoding is not UTF-8.
+- Windows Unicode crash: `export_chat.py` crashed with `UnicodeEncodeError: 'charmap' codec can't encode character` when printing session titles containing non-ASCII characters (Cyrillic, emoji, currency symbols like в‚Ѕ) on Windows, where the default console code page is cp1251 or cp437. The script now calls `sys.stdout.reconfigure(encoding="utf-8")` at startup when the default encoding is not UTF-8.
 
-### v1.0 — Initial release
+### v1.0 вЂ” Initial release
 
 - Opencode-only export from SQLite database
 
