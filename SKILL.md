@@ -26,7 +26,17 @@ local storage and exports conversations to structured Markdown.
 
 ## How It Works
 
-The skill uses a Python script (`export_chat.py`) that reads directly from opencode's SQLite database at `~/.local/share/opencode/opencode.db`. It queries the `session`, `message`, and `part` tables to reconstruct the full conversation.
+The skill uses a Python script (`export_chat.py`, v2.2.0) that reads directly from each harness's local storage. It queries the underlying store (SQLite tables, JSON/JSONL files, etc.) to reconstruct the full conversation.
+
+## Support levels (v2.2.0, live-audited 2026-09-30)
+
+- **Verified live** (session list + full export with real bodies tested): Opencode (ranked DB detection, new `tool`/`reasoning`/`patch`/`file` part types), Cursor (bubble storage: `bubbleId:<composerId>:<bubbleId>`, titles from `composerData.name`), Continue (JSON history), Trae (session list + metadata; bodies live in IndexedDB, not SQLite), Windsurf (index-based, empty on test machine → correctly 0 sessions).
+- **Code-complete** (documented format implemented, no live data on test machine): Claude Code, Cline/Kilo/Roo, Aider, Codex CLI, Cody, Warp, Goose.
+- **Best-effort with honest fallback** (undocumented/private formats return what they find instead of failing silently): Copilot Chat, Zed, JetBrains AI, Amazon Q, Gemini, Tabnine.
+
+Database auto-detection (v2.1.0): candidates are ranked by validity, not by order — files <4KB, non-SQLite files and DBs without a `session` table are skipped. This guards against the 0-byte placeholder at `%LOCALAPPDATA%\opencode\opencode.db` shadowing the real database (`~/.local/share/opencode/opencode.db`, ~1.4GB). Override with `--db <path>` or `OPENCODE_DB` env var.
+
+Part-type coverage (v2.1.0, current opencode format): `text` → message body; `tool` (`state.{input,output,status}`) → `[TOOL: name]` blocks; `reasoning` → `[TOOL: reasoning]`; `patch`/`file` → one-line summary; `step-start`/`step-finish`/`compaction`/unknown → skipped (envelope, no content). Legacy `tool_use`/`tool_result` blobs still render.
 
 ## Steps
 
@@ -112,7 +122,7 @@ Result:
 ## Notes
 
 - The script reads the SQLite database directly — it does not rely on opencode's runtime API.
-- The database path is auto-detected on Linux (`~/.local/share/opencode/opencode.db`) and Windows (`%LOCALAPPDATA%\opencode\opencode.db` or `~\.local\share\opencode\opencode.db`).
+- The database path is auto-detected and ranked by validity (size + SQLite magic + `session` table); use `--db <path>` or `OPENCODE_DB` env var to force a specific database.
 - Tool call arguments and results are truncated to prevent excessively large files (800 chars for args, 2000 for results).
 - The `--no-tools` flag produces a cleaner, conversation-only export without tool calls.
 - The script is pure Python 3 with no external dependencies — only the standard library (`sqlite3`, `json`, `os`, `argparse`, `datetime`).

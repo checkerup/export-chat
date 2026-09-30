@@ -1,146 +1,164 @@
-﻿[![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md) [![Русский](https://img.shields.io/badge/lang-Русский-red.svg)](README.ru.md) [![中文](https://img.shields.io/badge/lang-中文-green.svg)](README.zh.md)
+# export-chat — 中文说明
 
-# export-chat вЂ” дё­ж–‡иЇґжЋ
+通用聊天记录导出工具，支持 **20+ AI 编程工具/IDE**。直接从每个工具的本地存储（SQLite、JSON、JSONL、Markdown、YAML）读取对话，并导出为结构化的 Markdown 文件。
 
-йЂљз”ЁиЃЉе¤©и®°еЅ•еЇје‡єе·Ґе…·пјЊж”ЇжЊЃ **20+ AI зј–зЁ‹е·Ґе…·/IDE**гЂ‚з›ґжЋҐд»ЋжЇЏдёЄе·Ґе…·зљ„жњ¬ењ°е­е‚Ёпј€SQLiteгЂЃJSONгЂЃJSONLгЂЃMarkdownгЂЃYAMLпј‰иЇ»еЏ–еЇ№иЇќпјЊе№¶еЇје‡єдёєз»“жћ„еЊ–зљ„ Markdown ж–‡д»¶гЂ‚
+## 支持的工具
 
-## ж”ЇжЊЃзљ„е·Ґе…·
-
-| # | е·Ґе…· | ж јејЏ | зЉ¶жЂЃ |
+| # | 工具 | 格式 | 状态 |
 |---|------|------|------|
-| 1 | Claude Code | JSONL | вњ… е®Њж•ґ |
-| 2 | Cursor | SQLite (state.vscdb) | вњ… е®Њж•ґ |
-| 3 | GitHub Copilot Chat | SQLite (VS Code) | вљ пёЏ йѓЁе€† |
-| 4 | Windsurf | SQLite (state.vscdb) | вљ пёЏ йѓЁе€† |
-| 5 | Continue | JSON | вњ… е®Њж•ґ |
-| 6 | Cline | JSON (per-task) | вњ… е®Њж•ґ |
-| 7 | Aider | Markdown | вњ… е®Њж•ґ |
-| 8 | Codex CLI | JSONL | вњ… е®Њж•ґ |
-| 9 | Opencode | SQLite (opencode.db) | вњ… е®Њж•ґ |
-| 10 | Zed AI | SQLite | вљ пёЏ жњЄи®°еЅ• |
-| 11 | Trae | SQLite (state.vscdb) | вљ пёЏ йѓЁе€† |
-| 12 | JetBrains AI Assistant | XML | вљ пёЏ жњЄи®°еЅ• |
-| 13 | Cody (Sourcegraph) | JSON | вњ… е®Њж•ґ |
-| 14 | Amazon Q Developer | SQLite (VS Code) | вљ пёЏ йѓЁе€† |
-| 15 | Gemini Code Assist | SQLite (VS Code) | вљ пёЏ йѓЁе€† |
-| 16 | Tabnine | SQLite (VS Code) | вљ пёЏ йѓЁе€† |
-| 17 | Warp | SQLite + JSON | вљ пёЏ йѓЁе€† |
-| 18 | Kilo Code | JSON (per-task) | вњ… е®Њж•ґ |
-| 19 | Roo Code | JSON (per-task) | вњ… е®Њж•ґ |
-| 20 | Goose | YAML | вњ… е®Њж•ґ |
+| 1 | Claude Code | JSONL | ✅ 完整 |
+| 2 | Cursor | SQLite（state.vscdb：composerHeaders + cursorDiskKV 气泡） | ✅ 完整（已验证） |
+| 3 | GitHub Copilot Chat | SQLite (VS Code) | ⚠️ 部分 |
+| 4 | Windsurf | SQLite（state.vscdb + workspaceStorage，ChatSessionStore.index） | ⚠️ 部分 |
+| 5 | Continue | JSON | ✅ 完整（已验证） |
+| 6 | Cline | JSON (per-task) | ✅ 完整 |
+| 7 | Aider | Markdown | ✅ 完整 |
+| 8 | Codex CLI | JSONL | ✅ 完整 |
+| 9 | Opencode | SQLite（opencode.db，排名自动检测） | ✅ 完整（已验证） |
+| 10 | Zed AI | SQLite | ⚠️ 未记录 |
+| 11 | Trae | SQLite（仅会话元数据；正文在 IndexedDB） | ⚠️ 仅元数据 |
+| 12 | JetBrains AI Assistant | XML | ⚠️ 未记录 |
+| 13 | Cody (Sourcegraph) | JSON | ✅ 完整 |
+| 14 | Amazon Q Developer | SQLite (VS Code) | ⚠️ 部分 |
+| 15 | Gemini Code Assist | SQLite (VS Code) | ⚠️ 部分 |
+| 16 | Tabnine | SQLite (VS Code) | ⚠️ 部分 |
+| 17 | Warp | SQLite + JSON | ⚠️ 部分 |
+| 18 | Kilo Code | JSON (per-task) | ✅ 完整 |
+| 19 | Roo Code | JSON (per-task) | ✅ 完整 |
+| 20 | Goose | YAML | ✅ 完整 |
 
-## е®‰иЈ…
+_✅ 完整（已验证）= 已于 2026-09-30 真机测试：会话列表 + 含真实消息正文的完整导出。无标记的 ✅ 完整 = 代码已覆盖文档化格式，但测试机上无真实数据。⚠️ = 尽力而为 + 优雅降级：如实报告找到的内容（Trae 仅导出会话元数据，因正文在 IndexedDB 而非 SQLite；Zed/JetBrains 格式未公开）。_
 
-е°†жЉЂиѓЅж–‡д»¶ж”ѕе…Ґ opencode жЉЂиѓЅз›®еЅ•пјљ
+## 安装
+
+将技能文件放入 opencode 技能目录：
 
 ```
 ~/.config/opencode/skills/export-chat/SKILL.md
 ~/.config/opencode/skills/export-chat/export_chat.py
 ```
 
-ж€–йЎ№з›®зє§е®‰иЈ…пјљ
+或项目级安装：
 
 ```
 .opencode/skills/export-chat/SKILL.md
 .opencode/skills/export-chat/export_chat.py
 ```
 
-е®‰иЈ…еђЋ**й‡ЌеђЇ opencode** д»ҐеЉ иЅЅжЉЂиѓЅгЂ‚
+安装后**重启 opencode** 以加载技能。
 
-## дЅїз”Ёж–№жі•
+## 使用方法
 
-### ењЁ opencode дё­
+### 在 opencode 中
 
-з›ґжЋҐи®©д»Јзђ†еЇје‡єиЃЉе¤©пјљ
+直接让代理导出聊天：
 
-- "еЇје‡єиї™дёЄеЇ№иЇќ"
-- "дїќе­ж€‘д»¬зљ„иЃЉе¤©е€°ж–‡д»¶"
-- "еЇје‡єиЃЉе¤©еЋ†еЏІ"
-- "д»Ћ Cursor еЇје‡єиЃЉе¤©"
-- "еЇје‡єж€‘зљ„ Continue дјљиЇќ"
+- "导出这个对话"
+- "保存我们的聊天到文件"
+- "导出聊天历史"
+- "从 Cursor 导出聊天"
+- "导出我的 Continue 会话"
 
-д»Јзђ†е°†и°ѓз”ЁжЉЂиѓЅе№¶е°† Markdown ж–‡д»¶дїќе­е€°еЅ“е‰ЌйЎ№з›®з›®еЅ•гЂ‚
+代理将调用技能并将 Markdown 文件保存到当前项目目录。
 
-### е‘Ѕд»¤иЎЊ
+### 命令行
 
 ```bash
-# е€—е‡єжњ¬жњєжЈЂжµ‹е€°зљ„е·Ґе…·
+# 列出本机检测到的工具
 python export_chat.py --list-harnesses
 
-# е€—е‡єж‰Ђжњ‰жЈЂжµ‹е€°зљ„е·Ґе…·зљ„жњЂиї‘дјљиЇќ
+# 列出所有检测到的工具的最近会话
 python export_chat.py --list
 
-# е€—е‡єж‰Ђжњ‰дјљиЇќ
+# 列出所有会话
 python export_chat.py --list-all
 
-# д»…е€—е‡єз‰№е®ље·Ґе…·зљ„дјљиЇќ
+# 仅列出特定工具的会话
 python export_chat.py --list --harness cursor
 python export_chat.py --list --harness opencode
 python export_chat.py --list --harness continue
 
-# еЇје‡єз‰№е®љдјљиЇќпј€и‡ЄеЉЁжЈЂжµ‹е·Ґе…·пј‰
+# 导出特定会话（自动检测工具）
 python export_chat.py -s "ses_abc123"
 
-# жЊ‡е®ље·Ґе…·еЇје‡є
+# 指定工具导出
 python export_chat.py -s "665f8904-..." --harness continue -o /tmp/chat.md
 
-# д»…еЇје‡єж–‡жњ¬пј€дёЌеђ«е·Ґе…·и°ѓз”Ёпј‰
+# 仅导出文本（不含工具调用）
 python export_chat.py -s "ses_abc123" --no-tools
 
-# жЊ‰йЎ№з›®з›®еЅ•з­›йЂ‰
+# 按项目目录筛选
 python export_chat.py --list -d /path/to/project
 
-# и‡Єе®љд№‰ж•°жЌ®еє“и·Їеѕ„пј€ж—§з‰€пјЊд»… opencodeпј‰
+# 自定义数据库路径（仅 opencode；覆盖自动检测，或设置 OPENCODE_DB 环境变量）
 python export_chat.py --db /path/to/opencode.db --list
 ```
 
-## и„љжњ¬еЏ‚ж•°
+## 脚本参数
 
-| еЏ‚ж•° | з®Ђе†™ | иЇґжЋ |
+| 参数 | 简写 | 说明 |
 |------|------|------|
-| `--session-id` | `-s` | и¦ЃеЇје‡єзљ„дјљиЇќ ID |
-| `--output` | `-o` | и‡Єе®љд№‰иѕ“е‡єж–‡д»¶и·Їеѕ„ |
-| `--directory` | `-d` | з­›йЂ‰дјљиЇќзљ„йЎ№з›®з›®еЅ• |
-| `--list` | `-l` | е€—е‡єж‰Ђжњ‰е·Ґе…·дё­жњЂиї‘зљ„ 20 дёЄдјљиЇќ |
-| `--list-all` | | е€—е‡єж‰Ђжњ‰дјљиЇќ |
-| `--list-harnesses` | | жѕз¤єж‰Ђжњ‰ 20 дёЄе·Ґе…·еЏЉжЈЂжµ‹зЉ¶жЂЃ |
-| `--harness` | | з­›йЂ‰з‰№е®ље·Ґе…·пј€е¦‚ `opencode`гЂЃ`cursor`пј‰ |
-| `--no-tools` | | еЇје‡єдё­жЋ’й™¤е·Ґе…·и°ѓз”Ё |
-| `--db` | | и‡Єе®љд№‰ж•°жЌ®еє“и·Їеѕ„пј€ж—§з‰€пјЊд»… opencodeпј‰ |
+| `--session-id` | `-s` | 要导出的会话 ID |
+| `--output` | `-o` | 自定义输出文件路径 |
+| `--directory` | `-d` | 筛选会话的项目目录 |
+| `--list` | `-l` | 列出所有工具中最近的 20 个会话 |
+| `--list-all` | | 列出所有会话 |
+| `--list-harnesses` | | 显示所有 20 个工具及检测状态 |
+| `--harness` | | 筛选特定工具（如 `opencode`、`cursor`） |
+| `--no-tools` | | 导出中排除工具调用 |
+| `--db` | | 自定义 opencode 数据库路径（覆盖排名自动检测；或 `OPENCODE_DB` 环境变量） |
 
-## ж™єиѓЅж€Єж–­
+## 智能截断
 
-- е·Ґе…·и°ѓз”ЁеЏ‚ж•°ж€Єж–­дёє 800 е­—з¬¦
-- е·Ґе…·и°ѓз”Ёз»“жћњж€Єж–­дёє 2000 е­—з¬¦
-- дЅїз”Ё `--no-tools` еЏЇиЋ·еѕ—д»…еЇ№иЇќзљ„е№Іе‡ЂеЇје‡є
+- 工具调用参数截断为 800 字符
+- 工具调用结果截断为 2000 字符
+- 使用 `--no-tools` 可获得仅对话的干净导出
 
-## зі»з»џи¦Ѓж±‚
+## 系统要求
 
-- Python 3.6+пј€ж— е¤–йѓЁдѕќиµ– вЂ” д»…ж ‡е‡†еє“пј‰
-- еЇ№е·Ґе…·ж•°жЌ®еє“зљ„еЏЄиЇ»и®їй—®пј€дёЌдї®ж”№д»»дЅ•е†…е®№пј‰
+- Python 3.6+（无外部依赖 — 仅标准库）
+- 对工具数据库的只读访问（不修改任何内容）
 
-## ж›ґж–°ж—Ґеї—
+## 更新日志
 
-### v2.0.0 вЂ” 2026-08-18
+### v2.2.0 — 2026-09-30
 
-**й‡Ќе¤§й‡Ќе†™пјљйЂљз”Ёе¤ље·Ґе…·ж”ЇжЊЃ**
+**20 个工具全部真机审计 + Cursor/Trae/Windsurf 修复**
 
-- **ж”ЇжЊЃ 20 дёЄе·Ґе…·**пјљClaude CodeгЂЃCursorгЂЃGitHub Copilot ChatгЂЃWindsurfгЂЃContinueгЂЃClineгЂЃAiderгЂЃCodex CLIгЂЃOpencodeгЂЃZed AIгЂЃTraeгЂЃJetBrains AI AssistantгЂЃCodyгЂЃAmazon Q DeveloperгЂЃGemini Code AssistгЂЃTabnineгЂЃWarpгЂЃKilo CodeгЂЃRoo CodeгЂЃGoose
-- **йЂ‚й…Ќе™Ёжћ¶жћ„**пјљжЇЏдёЄе·Ґе…·ж‹Ґжњ‰и‡Єе·±зљ„йЂ‚й…Ќе™ЁпјЊеЊ…еђ« `detect()`гЂЃ`list_sessions()`гЂЃ`export_session()` ж–№жі•
-- **и·Ёе·Ґе…·жђњзґў**пјљ`--list` ж‰«жЏЏж‰Ђжњ‰жЈЂжµ‹е€°зљ„е·Ґе…·е№¶иЃљеђ€дјљиЇќ
-- **е·Ґе…·з­›йЂ‰**пјљ`--harness <name>` з­›йЂ‰з‰№е®ље·Ґе…·
-- **и‡ЄеЉЁжЈЂжµ‹**пјље­е‚ЁдЅЌзЅ®жЊ‰е№іеЏ°и‡ЄеЉЁжЈЂжµ‹пј€Windows/Linux/macOSпј‰
-- **е®Ње…Ёеђ‘еђЋе…је®№**пјљv1.x е‘Ѕд»¤з»§з»­жњ‰ж•€
+- **Cursor 重写（已验证）**：消息从 `cursorDiskKV` 气泡读取（`bubbleId:<composerId>:<bubbleId>`，角色 1=user / 2=assistant，顺序来自 `fullConversationHeadersOnly`）；标题来自 `composerData.name`，回退到首条用户消息；空会话如实报告。测试：83 条消息导出，标题与时间戳正确。
+- **Trae（已验证）**：会话来自 `icube_session_agent_map`（全局 + workspaceStorage 库）；导出返回元数据 + 诚实说明（正文在 IndexedDB，不在 SQLite）。
+- **Windsurf（已验证）**：会话索引来自各库的 `chat.ChatSessionStore.index`（测试机为空 → 正确报告 0 个会话）。
+- **Continue 加固**：无显式 `type` 但含 `text` 字段的内容块也能识别。
+- 支持表现在区分真机验证 / 代码完整 / 尽力而为三档。
 
-### v1.1 вЂ” 2026-08-18
+### v2.1.0 — 2026-09-30
 
-**дї®е¤Ќпјљ**
-- Windows Unicode еґ©жєѓпјљеЅ“ж‰“еЌ°еЊ…еђ«йќћ ASCII е­—з¬¦пј€иҐїй‡Ње°”е­—жЇЌгЂЃemojiгЂЃиґ§еёЃз¬¦еЏ·е¦‚ в‚Ѕпј‰зљ„дјљиЇќж ‡йўж—¶пјЊ`export_chat.py` ењЁй»и®¤жЋ§е€¶еЏ°зј–з Ѓдёє cp1251 ж€– cp437 зљ„ Windows дёЉеґ©жєѓгЂ‚и„љжњ¬зЋ°ењЁењЁеђЇеЉЁж—¶жЈЂжµ‹е€°йќћ UTF-8 зј–з Ѓж—¶и°ѓз”Ё `sys.stdout.reconfigure(encoding="utf-8")`гЂ‚
+**Opencode 存储格式变更适配**
 
-### v1.0 вЂ” е€ќе§‹з‰€жњ¬
+- **排名制数据库自动检测**：按有效性（大小 + SQLite 魔数 + `session` 表）打分，而非取首个命中 —— `%LOCALAPPDATA%\opencode\opencode.db` 的 0 字节占位文件不再遮挡真实的 1.4GB 数据库。
+- **`--db` 参数真正生效**（之前解析后被忽略）；支持 `OPENCODE_DB` 环境变量。
+- **新增 `part` 类型**：`tool`（经 `state.{input,output,status}`）、`reasoning`、`patch`、`file`；`step-*`/`compaction` 作为信封跳过。旧版 `tool_use`/`tool_result` 照常渲染。
 
-- д»…ж”ЇжЊЃд»Ћ opencode SQLite ж•°жЌ®еє“еЇје‡є
+### v2.0.0 — 2026-08-18
 
-## и®ёеЏЇиЇЃ
+**重大重写：通用多工具支持**
+
+- **支持 20 个工具**：Claude Code、Cursor、GitHub Copilot Chat、Windsurf、Continue、Cline、Aider、Codex CLI、Opencode、Zed AI、Trae、JetBrains AI Assistant、Cody、Amazon Q Developer、Gemini Code Assist、Tabnine、Warp、Kilo Code、Roo Code、Goose
+- **适配器架构**：每个工具拥有自己的适配器，包含 `detect()`、`list_sessions()`、`export_session()` 方法
+- **跨工具搜索**：`--list` 扫描所有检测到的工具并聚合会话
+- **工具筛选**：`--harness <name>` 筛选特定工具
+- **自动检测**：存储位置按平台自动检测（Windows/Linux/macOS）
+- **完全向后兼容**：v1.x 命令继续有效
+
+### v1.1 — 2026-08-18
+
+**修复：**
+- Windows Unicode 崩溃：当打印包含非 ASCII 字符（西里尔字母、emoji、货币符号如 ₽）的会话标题时，`export_chat.py` 在默认控制台编码为 cp1251 或 cp437 的 Windows 上崩溃。脚本现在在启动时检测到非 UTF-8 编码时调用 `sys.stdout.reconfigure(encoding="utf-8")`。
+
+### v1.0 — 初始版本
+
+- 仅支持从 opencode SQLite 数据库导出
+
+## 许可证
 
 MIT

@@ -1,6 +1,18 @@
-﻿__pycache__/
-*.pyc
-*.pyo
-.DS_Store
-*.egg-info/
+# Secrets & local stuff — never commit
 .env
+.env.*
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+accounts*.json
+*session*.json
+token*.json
+.auth*
+*proxies*.json
+proxies.txt
+__pycache__/
+*.pyc
+chat_export_*.md
+*_export.md
+jev_*.md

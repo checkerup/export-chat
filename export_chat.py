@@ -29,7 +29,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
         pass
 
 # Version
-VERSION = "2.0.0"
+VERSION = "2.2.0"
 
 # Helpers ----------------------------------------------------------------------
 
@@ -226,7 +226,15 @@ class ClaudeCodeAdapter(BaseAdapter):
 class CursorAdapter(BaseAdapter):
     name = "cursor"
     display_name = "Cursor"
-    storage_format = "SQLite (state.vscdb)"
+    storage_format = "SQLite (state.vscdb: composerHeaders + cursorDiskKV)"
+
+    # Bubble type -> role (verified against live Cursor storage):
+    #   1 = user (plain `text`), 2 = assistant (markdown chunks in `text`,
+    #   empty text = streaming/control fragment, skipped).
+    # Messages live in cursorDiskKV under `bubbleId:<composerId>:<bubbleId>`
+    # (fallback: serverBubbleId); order comes from
+    # composerData:<id>.fullConversationHeadersOnly. Title = composerData.name.
+    ROLE_MAP = {1: "user", 2: "assistant"}
 
     def _db_path(self):
         return _appdata("Cursor", "User", "globalStorage", "state.vscdb")
@@ -242,6 +250,42 @@ class CursorAdapter(BaseAdapter):
         conn.row_factory = sqlite3.Row
         return conn
 
+    @staticmethod
+    def _parse_ts(value):
+        """ISO-8601 / epoch -> epoch ms (0 on failure)."""
+        if not value:
+            return 0
+        try:
+            if isinstance(value, (int, float)):
+                return int(value) if value > 1e12 else int(value * 1000)
+            s = str(value).strip().replace("Z", "+00:00")
+            from datetime import datetime as _dt
+            return int(_dt.fromisoformat(s).timestamp() * 1000)
+        except (ValueError, OverflowError):
+            return 0
+
+    def _composer_name(self, conn, composer_id):
+        try:
+            c = conn.cursor()
+            c.execute("SELECT value FROM cursorDiskKV WHERE key = ?", (f"composerData:{composer_id}",))
+            row = c.fetchone()
+            if row and row[0]:
+                data = json.loads(row[0])
+                name = (data.get("name") or "").strip()
+                if name:
+                    return name
+                # Fallback: first user bubble text (many composers are unnamed)
+                for h in data.get("fullConversationHeadersOnly", []):
+                    if h.get("type") != 1:
+                        continue
+                    bubble = self._fetch_bubble(conn, composer_id, h)
+                    if bubble and (bubble.get("text") or "").strip():
+                        return bubble["text"].strip()[:60]
+                    break
+        except (sqlite3.Error, ValueError):
+            pass
+        return "Untitled"
+
     def list_sessions(self, directory=None, limit=20):
         conn = self._connect()
         if not conn:
@@ -249,19 +293,42 @@ class CursorAdapter(BaseAdapter):
         sessions = []
         try:
             c = conn.cursor()
-            # composerHeaders table has one row per conversation
             try:
-                c.execute("SELECT composerId, workspaceId, createdAt, value FROM composerHeaders ORDER BY createdAt DESC LIMIT ?", (limit,))
-                for row in c.fetchall():
-                    val = json.loads(row["value"]) if row["value"] else {}
-                    title = val.get("title", "") or val.get("draftTarget", "") or "Untitled"
-                    ws = row["workspaceId"] or ""
-                    sessions.append(SessionInfo(row["composerId"], title, ws, row["createdAt"] or 0, self.name))
+                c.execute(
+                    "SELECT composerId, workspaceId, createdAt FROM composerHeaders "
+                    "WHERE COALESCE(isArchived,0)=0 ORDER BY createdAt DESC LIMIT ?",
+                    (limit,),
+                )
             except sqlite3.OperationalError:
-                pass
+                # Very old schema without isArchived
+                c.execute("SELECT composerId, workspaceId, createdAt FROM composerHeaders ORDER BY createdAt DESC LIMIT ?", (limit,))
+            for row in c.fetchall():
+                cid = row["composerId"]
+                if cid == "empty-state-draft":
+                    continue
+                sessions.append(SessionInfo(
+                    cid, self._composer_name(conn, cid),
+                    row["workspaceId"] or "", row["createdAt"] or 0, self.name,
+                ))
+        except sqlite3.OperationalError:
+            pass
         finally:
             conn.close()
         return sessions
+
+    def _fetch_bubble(self, conn, composer_id, header):
+        c = conn.cursor()
+        for bid in (header.get("bubbleId"), header.get("serverBubbleId")):
+            if not bid:
+                continue
+            try:
+                c.execute("SELECT value FROM cursorDiskKV WHERE key = ?", (f"bubbleId:{composer_id}:{bid}",))
+                row = c.fetchone()
+                if row and row[0]:
+                    return json.loads(row[0])
+            except (sqlite3.Error, ValueError):
+                continue
+        return None
 
     def export_session(self, session_id, include_tools=True):
         conn = self._connect()
@@ -271,34 +338,30 @@ class CursorAdapter(BaseAdapter):
         title = "Unknown"
         try:
             c = conn.cursor()
-            # Get composer data from cursorDiskKV
-            key = f"composerData:{session_id}"
-            try:
-                c.execute("SELECT value FROM cursorDiskKV WHERE key = ?", (key,))
-                row = c.fetchone()
-                if row:
-                    data = json.loads(row["value"])
-                    title = data.get("title", session_id)
-                    full_msgs = data.get("fullMessages", data.get("messages", []))
-                    for m in full_msgs:
-                        role = m.get("role", "unknown")
-                        content = ""
-                        tool_calls = []
-                        raw = m.get("content", "")
-                        if isinstance(raw, str):
-                            content = raw
-                        elif isinstance(raw, list):
-                            for block in raw:
-                                if isinstance(block, dict):
-                                    if block.get("type") == "text":
-                                        content += block.get("text", "")
-                                    elif block.get("type") == "tool_use" and include_tools:
-                                        tool_calls.append({"name": block.get("name", ""), "args": block.get("input", {})})
-                                    elif block.get("type") == "tool_result" and include_tools:
-                                        tool_calls.append({"name": "tool_result", "result": str(block.get("content", ""))[:2000]})
-                        messages.append(Message(role, content, 0, tool_calls))
-            except sqlite3.OperationalError:
-                pass
+            c.execute("SELECT value FROM cursorDiskKV WHERE key = ?", (f"composerData:{session_id}",))
+            row = c.fetchone()
+            if not row or not row[0]:
+                return ("Unknown", "", [])
+            data = json.loads(row[0])
+            title = (data.get("name") or "").strip() or session_id
+            for h in data.get("fullConversationHeadersOnly", []):
+                role = self.ROLE_MAP.get(h.get("type"), "unknown")
+                bubble = self._fetch_bubble(conn, session_id, h)
+                if not bubble:
+                    continue
+                ts = self._parse_ts(bubble.get("createdAt"))
+                content = (bubble.get("text") or "").strip()
+                tool_calls = []
+                if include_tools:
+                    for tr in bubble.get("toolResults", []) or []:
+                        tool_calls.append({"name": "tool_result", "result": json.dumps(tr, ensure_ascii=False)[:2000]})
+                    for sc in bubble.get("suggestedCodeBlocks", []) or []:
+                        tool_calls.append({"name": "code_block", "result": json.dumps(sc, ensure_ascii=False)[:2000]})
+                if not content and not tool_calls:
+                    continue  # streaming/control fragment
+                messages.append(Message(role, content, ts, tool_calls))
+        except (sqlite3.OperationalError, ValueError):
+            return ("Unknown", "", [])
         finally:
             conn.close()
         return (title, "", messages)
@@ -311,15 +374,75 @@ class OpencodeAdapter(BaseAdapter):
     display_name = "Opencode"
     storage_format = "SQLite (opencode.db)"
 
-    def _db_path(self):
-        candidates = [
+    # Explicit override (wired from --db flag or OPENCODE_DB env). Set by main().
+    _db_override = None
+
+    def _candidates(self):
+        cands = []
+        if self._db_override:
+            cands.append(self._db_override)
+        env_db = os.environ.get("OPENCODE_DB")
+        if env_db:
+            cands.append(env_db)
+        cands.extend([
             _localappdata("opencode", "opencode.db"),
             _home(".local", "share", "opencode", "opencode.db"),
-        ]
-        for p in candidates:
-            if os.path.isfile(p):
-                return p
-        return None
+        ])
+        # Deduplicate, keep order
+        seen, uniq = set(), []
+        for p in cands:
+            if p and p not in seen:
+                seen.add(p)
+                uniq.append(p)
+        return uniq
+
+    @staticmethod
+    def _db_score(path):
+        """Score a candidate DB file. Returns -1 if unusable, else size-based score.
+
+        Guards against the known failure mode where a 0-byte placeholder
+        (e.g. %LOCALAPPDATA%\\opencode\\opencode.db) shadows the real database:
+        such files are skipped instead of silently yielding zero sessions.
+        """
+        try:
+            if not path or not os.path.isfile(path):
+                return -1
+            size = os.path.getsize(path)
+            if size < 4096:
+                return -1
+            with open(path, "rb") as f:
+                if f.read(16) != b"SQLite format 3\x00":
+                    return -1
+            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
+            try:
+                c = conn.cursor()
+                c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session','message','part')")
+                tables = {r[0] for r in c.fetchall()}
+                if "session" not in tables:
+                    return -1
+                bonus = 0
+                if "message" in tables:
+                    bonus += 1
+                if "part" in tables:
+                    bonus += 1
+                try:
+                    c.execute("SELECT COUNT(*) FROM session")
+                    n = c.fetchone()[0] or 0
+                except sqlite3.OperationalError:
+                    n = 0
+                return size + bonus * 10**12 + min(n, 10**6)
+            finally:
+                conn.close()
+        except (OSError, sqlite3.Error):
+            return -1
+
+    def _db_path(self):
+        best, best_score = None, -1
+        for p in self._candidates():
+            s = self._db_score(p)
+            if s > best_score:
+                best, best_score = p, s
+        return best
 
     def detect(self):
         return self._db_path() is not None
@@ -379,10 +502,31 @@ class OpencodeAdapter(BaseAdapter):
                         t = pdata.get("text", "").strip()
                         if t:
                             text_parts.append(t)
+                    elif ptype == "reasoning":
+                        t = pdata.get("text", "").strip()
+                        if t and include_tools:
+                            tool_parts.append({"name": "reasoning", "result": t})
+                    elif ptype == "tool" and include_tools:
+                        # New opencode format:
+                        # {"type":"tool","tool":"<name>","callID":"...","state":{"status","input","output"}}
+                        state = pdata.get("state", {}) or {}
+                        tool_parts.append({
+                            "name": pdata.get("tool", "unknown"),
+                            "args": state.get("input", {}),
+                            "result": state.get("output", ""),
+                            "status": state.get("status", ""),
+                        })
                     elif ptype in ("tool_use", "tool_result") and include_tools:
+                        # Legacy format (pre-2026 schemas)
                         tool_parts.append(json.dumps(pdata, ensure_ascii=False)[:2000])
+                    elif ptype == "patch" and include_tools:
+                        files = pdata.get("files", [])
+                        tool_parts.append({"name": "patch", "result": "files: " + ", ".join(files) if files else "patch"})
+                    elif ptype == "file" and include_tools:
+                        tool_parts.append({"name": "file", "result": f"{pdata.get('filename', 'file')} ({pdata.get('mime', '?')})"})
+                    # step-start / step-finish / compaction / unknown: skipped (envelope, no content)
                 content = "\n\n".join(text_parts)
-                messages.append(Message(role, content, ts, [{"name": "tool", "result": tp} for tp in tool_parts]))
+                messages.append(Message(role, content, ts, tool_parts))
             return (title, directory, messages)
         except sqlite3.OperationalError:
             return ("Unknown", "", [])
@@ -566,8 +710,9 @@ class ContinueAdapter(BaseAdapter):
                             content = raw_content
                         elif isinstance(raw_content, list):
                             for block in raw_content:
-                                if isinstance(block, dict) and block.get("type") == "text":
-                                    content += block.get("text", "")
+                                if isinstance(block, dict):
+                                    if block.get("type") == "text" or "text" in block:
+                                        content += block.get("text", "")
                         messages.append(Message(role, content, 0))
                     return (title, ws, messages)
             except Exception:
@@ -706,7 +851,17 @@ class CodexAdapter(BaseAdapter):
 # --- 9. Windsurf / Trae (VS Code SQLite) --------------------------------------
 
 class VSCodeForkAdapter(BaseAdapter):
-    """Shared adapter for Windsurf, Trae — VS Code fork SQLite storage."""
+    """Shared adapter for Windsurf, Trae — VS Code fork SQLite storage.
+
+    Verified against live installs:
+    - Windsurf chats are indexed by `chat.ChatSessionStore.index`
+      (`{"version":1,"entries":{...}}`) in the global state.vscdb and in
+      User/workspaceStorage/*/state.vscdb. Empty entries = no sessions.
+    - Trae keeps only session metadata in SQLite (`icube_session_agent_map`
+      -> {sessionId: agent}, plus per-user ai-chat:* relation maps); message
+      bodies live outside SQLite (IndexedDB), so export returns session
+      metadata plus an honest stub instead of fake content.
+    """
     storage_format = "SQLite (state.vscdb)"
 
     def __init__(self, name, display_name, app_name):
@@ -714,70 +869,117 @@ class VSCodeForkAdapter(BaseAdapter):
         self.display_name = display_name
         self.app_name = app_name
 
-    def _db_path(self):
+    def _global_db(self):
         return _appdata(self.app_name, "User", "globalStorage", "state.vscdb")
 
-    def detect(self):
-        return os.path.isfile(self._db_path())
+    def _workspace_dbs(self):
+        ws = _appdata(self.app_name, "User", "workspaceStorage")
+        if not os.path.isdir(ws):
+            return []
+        return sorted(glob.glob(os.path.join(ws, "*", "state.vscdb")))
 
-    def _connect(self):
-        path = self._db_path()
-        if not os.path.isfile(path):
-            return None
-        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    def _all_dbs(self):
+        dbs = [self._global_db()] + self._workspace_dbs()
+        return [p for p in dbs if os.path.isfile(p)]
+
+    def detect(self):
+        return len(self._all_dbs()) > 0
+
+    def _connect_ro(self, path):
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=10)
         conn.row_factory = sqlite3.Row
         return conn
 
-    def list_sessions(self, directory=None, limit=20):
-        conn = self._connect()
-        if not conn:
-            return []
-        sessions = []
+    def _read_value(self, db, key):
         try:
-            c = conn.cursor()
-            c.execute("SELECT key, value FROM ItemTable WHERE key LIKE ? ORDER BY key DESC LIMIT ?", (f"%{self.app_name}%", limit))
-            for row in c.fetchall():
-                val = row["value"]
-                if not val:
-                    continue
-                try:
-                    data = json.loads(val) if isinstance(val, str) else val
-                    if isinstance(data, dict) and "messages" in data:
-                        sid = row["key"]
-                        title = data.get("title", sid)
-                        sessions.append(SessionInfo(sid, title, "", 0, self.name))
-                except json.JSONDecodeError:
-                    continue
-        except sqlite3.OperationalError:
-            pass
-        finally:
-            conn.close()
-        return sessions
+            conn = self._connect_ro(db)
+            try:
+                c = conn.cursor()
+                c.execute("SELECT value FROM ItemTable WHERE key = ?", (key,))
+                row = c.fetchone()
+                return row[0] if row else None
+            finally:
+                conn.close()
+        except sqlite3.Error:
+            return None
+
+    def _index_entries(self, db):
+        raw = self._read_value(db, "chat.ChatSessionStore.index")
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+            entries = data.get("entries", {})
+            return entries if isinstance(entries, dict) else {}
+        except (ValueError, AttributeError):
+            return {}
+
+    def _trae_sessions(self, db):
+        raw = self._read_value(db, "icube_session_agent_map")
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+            return data if isinstance(data, dict) else {}
+        except (ValueError, AttributeError):
+            return {}
+
+    def list_sessions(self, directory=None, limit=20):
+        sessions = []
+        seen = set()
+        for db in self._all_dbs():
+            if self.app_name.lower() == "trae":
+                for sid, agent in self._trae_sessions(db).items():
+                    if sid in seen:
+                        continue
+                    seen.add(sid)
+                    sessions.append(SessionInfo(sid, f"Trae session ({agent})", os.path.basename(os.path.dirname(db)), 0, self.name))
+            else:
+                for sid, entry in self._index_entries(db).items():
+                    if sid in seen:
+                        continue
+                    seen.add(sid)
+                    title = sid
+                    if isinstance(entry, dict):
+                        title = entry.get("title") or entry.get("name") or sid
+                    sessions.append(SessionInfo(sid, title, os.path.basename(os.path.dirname(db)), 0, self.name))
+            if len(sessions) >= limit:
+                break
+        return sessions[:limit]
 
     def export_session(self, session_id, include_tools=True):
-        conn = self._connect()
-        if not conn:
-            return ("Unknown", "", [])
-        try:
-            c = conn.cursor()
-            c.execute("SELECT value FROM ItemTable WHERE key = ?", (session_id,))
-            row = c.fetchone()
-            if not row:
-                return ("Unknown", "", [])
-            data = json.loads(row["value"]) if isinstance(row["value"], str) else row["value"]
-            title = data.get("title", session_id)
-            messages = []
-            for m in data.get("messages", []):
-                role = m.get("role", "unknown")
-                content = m.get("content", "")
-                if isinstance(content, list):
-                    content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
-                messages.append(Message(role, content, 0))
-            return (title, "", messages)
-        except (sqlite3.OperationalError, json.JSONDecodeError):
-            return ("Unknown", "", [])
-        finally:
-            conn.close()
+        for db in self._all_dbs():
+            for key in (f"chat.ChatSessionStore.{session_id}", f"cascade:{session_id}",
+                        f"ai-chat:session:{session_id}"):
+                raw = self._read_value(db, key)
+                if raw:
+                    try:
+                        data = json.loads(raw) if isinstance(raw, str) else raw
+                    except ValueError:
+                        data = {"raw": str(raw)[:2000]}
+                    title = data.get("title", session_id) if isinstance(data, dict) else session_id
+                    messages = []
+                    for m in data.get("messages", []) if isinstance(data, dict) else []:
+                        role = m.get("role", "unknown")
+                        content = m.get("content", "")
+                        if isinstance(content, list):
+                            content = " ".join(b.get("text", "") for b in content if isinstance(b, dict))
+                        messages.append(Message(role, content, 0))
+                    if messages:
+                        return (title, "", messages)
+        if self.app_name.lower() == "trae":
+            for db in self._all_dbs():
+                agent_map = self._trae_sessions(db)
+                if session_id in agent_map:
+                    return (f"Trae session ({agent_map[session_id]})", "",
+                            [Message("system",
+                                     f"Trae session '{session_id}' (agent: {agent_map[session_id]}). "
+                                     "Message bodies are not stored in SQLite (they live in IndexedDB), "
+                                     "so only session metadata can be exported. "
+                                     "Copy the conversation from the Trae UI for a full export.", 0)])
+        return (session_id, "", [Message("system",
+                 f"{self.display_name} session '{session_id}' has no exportable content in SQLite. "
+                 "The chat index is empty or the format is not yet documented. Please contribute.", 0)])
 
 
 # --- 10. GitHub Copilot Chat (VS Code SQLite) --------------------------------
@@ -1056,10 +1258,16 @@ def render_markdown(title, directory, messages, include_tools=True, harness="unk
             lines.append("")
         if msg.tool_calls and include_tools:
             for tc in msg.tool_calls:
+                if isinstance(tc, str):
+                    # Legacy raw JSON blob
+                    lines.append(f"[TOOL]\n{tc[:2000]}")
+                    lines.append("")
+                    continue
                 tname = tc.get("name", "unknown")
                 targs = tc.get("args", {})
                 tresult = tc.get("result", None)
-                label = f"[TOOL: {tname}]"
+                tstatus = tc.get("status", "")
+                label = f"[TOOL: {tname}]" + (f" ({tstatus})" if tstatus else "")
                 parts = [label]
                 if targs and isinstance(targs, dict) and targs:
                     args_str = json.dumps(targs, ensure_ascii=False, indent=2)
@@ -1126,8 +1334,11 @@ def main():
     parser.add_argument("--list-harnesses", action="store_true", help="Show detected harnesses and exit")
     parser.add_argument("--no-tools", action="store_true", help="Exclude tool calls from export")
     parser.add_argument("--harness", help="Filter to a specific harness (e.g. opencode, cursor, claude-code)")
-    parser.add_argument("--db", help="Custom database path (legacy, for opencode only)")
+    parser.add_argument("--db", help="Custom database path (opencode only, overrides auto-detection)")
     args = parser.parse_args()
+
+    if args.db:
+        OpencodeAdapter._db_override = args.db
 
     if args.list_harnesses:
         list_all_harnesses()

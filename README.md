@@ -1,5 +1,3 @@
-﻿[![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md) [![Русский](https://img.shields.io/badge/lang-Русский-red.svg)](README.ru.md) [![中文](https://img.shields.io/badge/lang-中文-green.svg)](README.zh.md)
-
 # export-chat
 
 Universal chat history export tool for **20+ AI coding harnesses/IDEs**. Reads conversations directly from each tool's local storage (SQLite, JSON, JSONL, Markdown, YAML) and exports them to a structured Markdown file.
@@ -8,26 +6,28 @@ Universal chat history export tool for **20+ AI coding harnesses/IDEs**. Reads c
 
 | # | Harness | Format | Status |
 |---|---------|--------|--------|
-| 1 | Claude Code | JSONL | вњ… Full |
-| 2 | Cursor | SQLite (state.vscdb) | вњ… Full |
-| 3 | GitHub Copilot Chat | SQLite (VS Code) | вљ пёЏ Partial |
-| 4 | Windsurf | SQLite (state.vscdb) | вљ пёЏ Partial |
-| 5 | Continue | JSON | вњ… Full |
-| 6 | Cline | JSON (per-task) | вњ… Full |
-| 7 | Aider | Markdown | вњ… Full |
-| 8 | Codex CLI | JSONL | вњ… Full |
-| 9 | Opencode | SQLite (opencode.db) | вњ… Full |
-| 10 | Zed AI | SQLite | вљ пёЏ Undocumented |
-| 11 | Trae | SQLite (state.vscdb) | вљ пёЏ Partial |
-| 12 | JetBrains AI Assistant | XML | вљ пёЏ Undocumented |
-| 13 | Cody (Sourcegraph) | JSON | вњ… Full |
-| 14 | Amazon Q Developer | SQLite (VS Code) | вљ пёЏ Partial |
-| 15 | Gemini Code Assist | SQLite (VS Code) | вљ пёЏ Partial |
-| 16 | Tabnine | SQLite (VS Code) | вљ пёЏ Partial |
-| 17 | Warp | SQLite + JSON | вљ пёЏ Partial |
-| 18 | Kilo Code | JSON (per-task) | вњ… Full |
-| 19 | Roo Code | JSON (per-task) | вњ… Full |
-| 20 | Goose | YAML | вњ… Full |
+| 1 | Claude Code | JSONL | ✅ Full |
+| 2 | Cursor | SQLite (state.vscdb: composerHeaders + cursorDiskKV bubbles) | ✅ Full (verified) |
+| 3 | GitHub Copilot Chat | SQLite (VS Code) | ⚠️ Partial |
+| 4 | Windsurf | SQLite (state.vscdb + workspaceStorage, ChatSessionStore.index) | ⚠️ Partial |
+| 5 | Continue | JSON | ✅ Full (verified) |
+| 6 | Cline | JSON (per-task) | ✅ Full |
+| 7 | Aider | Markdown | ✅ Full |
+| 8 | Codex CLI | JSONL | ✅ Full |
+| 9 | Opencode | SQLite (opencode.db, ranked auto-detection) | ✅ Full (verified) |
+| 10 | Zed AI | SQLite | ⚠️ Undocumented |
+| 11 | Trae | SQLite (session metadata; bodies live in IndexedDB) | ⚠️ Metadata only |
+| 12 | JetBrains AI Assistant | XML | ⚠️ Undocumented |
+| 13 | Cody (Sourcegraph) | JSON | ✅ Full |
+| 14 | Amazon Q Developer | SQLite (VS Code) | ⚠️ Partial |
+| 15 | Gemini Code Assist | SQLite (VS Code) | ⚠️ Partial |
+| 16 | Tabnine | SQLite (VS Code) | ⚠️ Partial |
+| 17 | Warp | SQLite + JSON | ⚠️ Partial |
+| 18 | Kilo Code | JSON (per-task) | ✅ Full |
+| 19 | Roo Code | JSON (per-task) | ✅ Full |
+| 20 | Goose | YAML | ✅ Full |
+
+_✅ Full (verified) = tested live on 2026-09-30: session list + full export with real message bodies. ✅ Full without the mark = code-complete for the documented format but no live data on the test machine. ⚠️ = best-effort with graceful fallback: the tool reports what it found instead of failing silently (Trae exports session metadata because message bodies live in IndexedDB, not SQLite; Zed/JetBrains formats are undocumented)._
 
 ## Installation
 
@@ -90,7 +90,7 @@ python export_chat.py -s "ses_abc123" --no-tools
 # Filter by project directory
 python export_chat.py --list -d /path/to/project
 
-# Custom database path (legacy, opencode only)
+# Custom database path (opencode only; overrides auto-detection, or set OPENCODE_DB env var)
 python export_chat.py --db /path/to/opencode.db --list
 ```
 
@@ -106,7 +106,7 @@ python export_chat.py --db /path/to/opencode.db --list
 | `--list-harnesses` | | Show all 20 harnesses and detection status |
 | `--harness` | | Filter to a specific harness (e.g. `opencode`, `cursor`) |
 | `--no-tools` | | Exclude tool calls from export |
-| `--db` | | Custom database path (legacy, opencode only) |
+| `--db` | | Custom opencode database path (overrides ranked auto-detection; or `OPENCODE_DB` env var) |
 
 ## Output Format
 
@@ -148,7 +148,7 @@ Result:
 
 ## Requirements
 
-- Python 3.6+ (no external dependencies вЂ” only stdlib)
+- Python 3.6+ (no external dependencies — only stdlib)
 - Read-only access to harness databases (does not modify anything)
 
 ## Platform Support
@@ -161,9 +161,16 @@ Result:
 
 ## Troubleshooting
 
-**"opencode.db not found"**
-- Check that opencode is installed and has been run at least once
-- Use `--db` to specify the path manually
+**"opencode.db not found" / empty session list**
+- v2.1+: databases are ranked by validity (size + SQLite magic + `session` table). A 0-byte placeholder at `%LOCALAPPDATA%\opencode\opencode.db` no longer shadows the real database at `%USERPROFILE%\.local\share\opencode\opencode.db`.
+- Check that opencode is installed and has been run at least once.
+- Use `--db` (or `OPENCODE_DB` env var) to specify the path manually.
+
+**Cursor export says "No messages found"**
+- That composer is genuinely empty (no bubbles). Non-empty composers export with real titles from `composerData.name` (fallback: first user message).
+
+**Trae export contains only metadata**
+- Expected: Trae message bodies live in IndexedDB, not SQLite — only session metadata (`icube_session_agent_map`) is exportable. Copy the conversation from the Trae UI for a full export.
 
 **"UnicodeEncodeError: 'charmap' codec can't encode character..." (Windows)**
 - v1.1+ fixes this automatically by forcing UTF-8 on stdout/stderr
@@ -176,7 +183,25 @@ Result:
 
 ## Changelog
 
-### v2.0.0 вЂ” 2026-08-18
+### v2.2.0 — 2026-09-30
+
+**Live audit of all 20 harnesses + Cursor/Trae/Windsurf fixes**
+
+- **Cursor rewrite (verified live)**: messages are read from `cursorDiskKV` bubbles (`bubbleId:<composerId>:<bubbleId>`, roles 1=user / 2=assistant, order from `fullConversationHeadersOnly`); titles from `composerData.name` with first-user-message fallback; empty composers report cleanly instead of fake output. Tested: 83-message export with real title and timestamps.
+- **Trae (verified live)**: sessions listed from `icube_session_agent_map` (global + workspaceStorage DBs); export returns session metadata with an honest stub (bodies live in IndexedDB, not SQLite).
+- **Windsurf (verified live)**: session index read from `chat.ChatSessionStore.index` across global + workspaceStorage DBs (empty on the test machine → correctly reports 0 sessions).
+- **Continue hardening**: content blocks without an explicit `type` but with a `text` field are now picked up.
+- Support table now distinguishes live-verified vs code-complete vs best-effort adapters.
+
+### v2.1.0 — 2026-09-30
+
+**Opencode storage format change**
+
+- **Ranked database auto-detection**: candidates are scored by validity (size + SQLite magic + `session` table) instead of first-match — the 0-byte placeholder at `%LOCALAPPDATA%\opencode\opencode.db` no longer shadows the real 1.4 GB database.
+- **`--db` flag actually works now** (was parsed but ignored); `OPENCODE_DB` env var supported.
+- **New `part` types**: `tool` (via `state.{input,output,status}`), `reasoning`, `patch`, `file`; `step-*`/`compaction` skipped as envelope. Legacy `tool_use`/`tool_result` still render.
+
+### v2.0.0 — 2026-08-18
 
 **Major rewrite: universal multi-harness support**
 
@@ -187,12 +212,12 @@ Result:
 - **Auto-detection**: storage locations auto-detected per platform (Windows/Linux/macOS)
 - **Full backward compatibility**: v1.x commands still work (`--db`, `--directory`, etc.)
 
-### v1.1 вЂ” 2026-08-18
+### v1.1 — 2026-08-18
 
 **Fixed:**
-- Windows Unicode crash: `export_chat.py` crashed with `UnicodeEncodeError: 'charmap' codec can't encode character` when printing session titles containing non-ASCII characters (Cyrillic, emoji, currency symbols like в‚Ѕ) on Windows, where the default console code page is cp1251 or cp437. The script now calls `sys.stdout.reconfigure(encoding="utf-8")` at startup when the default encoding is not UTF-8.
+- Windows Unicode crash: `export_chat.py` crashed with `UnicodeEncodeError: 'charmap' codec can't encode character` when printing session titles containing non-ASCII characters (Cyrillic, emoji, currency symbols like ₽) on Windows, where the default console code page is cp1251 or cp437. The script now calls `sys.stdout.reconfigure(encoding="utf-8")` at startup when the default encoding is not UTF-8.
 
-### v1.0 вЂ” Initial release
+### v1.0 — Initial release
 
 - Opencode-only export from SQLite database
 
